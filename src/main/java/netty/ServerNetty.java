@@ -2,6 +2,8 @@ package netty;
 
 import java.util.Random;
 
+import message.CalculationRequest;
+import message.CalculationResult;
 import message.DetailedWareHouseMessage;
 import message.WareHouseMessage;
 
@@ -19,10 +21,10 @@ import io.netty.handler.codec.serialization.ObjectEncoder;
 /**
  *
  */
-public class WareHouseServerNetty {
+public class ServerNetty {
 
 	public static final int MAXSTOCK = 10;
-	private static final Logger LOG = LoggerFactory.getLogger(WareHouseServerNetty.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ServerNetty.class);
 
 
 	public ChannelFuture start(int port, EventLoopGroup eventLoopGroup) throws InterruptedException {
@@ -31,17 +33,22 @@ public class WareHouseServerNetty {
                 .channel(NioServerSocketChannel.class)
                 .childHandler(new ChannelInitializer<SocketChannel>() {
 
-            @Override
-            public void initChannel(SocketChannel ch) throws Exception {
-                ch.pipeline().addLast(new ObjectEncoder(), new ObjectDecoder(ClassResolvers.cacheDisabled(null)), new Handler());
-            }
-        });
+                    @Override
+                    public void initChannel(SocketChannel ch) throws Exception {
+                        ch.pipeline().addLast(
+                                new ObjectEncoder(),
+                                new ObjectDecoder(ClassResolvers.cacheDisabled(null)),
+                                new WarehouseHandler(),
+                                new CalculatorHandler()
+                        );
+                    }
+                });
 
 		return b.bind("127.0.0.1", port).sync();
 	}
 
 
-	public static class Handler extends ChannelInboundMessageHandlerAdapter<WareHouseMessage> {
+	public static class WarehouseHandler extends ChannelInboundMessageHandlerAdapter<WareHouseMessage> {
 
 
 		private final Random random = new Random();
@@ -58,4 +65,18 @@ public class WareHouseServerNetty {
 
 
 	}
+
+    public static class CalculatorHandler extends ChannelInboundMessageHandlerAdapter<CalculationRequest>{
+        private final Random random = new Random();
+
+        @Override
+        public void messageReceived(ChannelHandlerContext ctx, CalculationRequest msg) throws Exception {
+            LOG.info("Uzenet megjott a klienstol: " + msg);
+
+            //TODO evaluate
+            final Number result = random.nextInt(MAXSTOCK);
+            LOG.info("szamitas kuldese: " + result);
+            ctx.write(new CalculationResult(msg,result));
+        }
+    }
 }
